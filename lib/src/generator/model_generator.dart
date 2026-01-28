@@ -34,9 +34,9 @@ class ModelGenerator {
     for (int i = 0; i < model.properties.length; i++) {
       final property = model.properties[i];
       if (property.isRequired) {
-        buffer.write('required this.${property.name}');
+        buffer.write('required ${property.type} this.${property.name}');
       } else {
-        buffer.write('this.${property.name}');
+        buffer.write('${property.type} this.${property.name}');
       }
       if (i < model.properties.length - 1) {
         buffer.write(', ');
@@ -156,27 +156,49 @@ class ModelGenerator {
 
     switch (type) {
       case 'String':
-        return 'json[\'${property.name}\']?.toString() ?? \'\'';
+        return property.isRequired
+            ? 'json[\'${property.name}\']?.toString() ?? \'\''
+            : 'json[\'${property.name}\']?.toString()';
       case 'int':
-        return 'json[\'${property.name}\']?.toInt() ?? 0';
+        return property.isRequired
+            ? 'json[\'${property.name}\']?.toInt() ?? 0'
+            : 'json[\'${property.name}\']?.toInt()';
       case 'double':
-        return 'json[\'${property.name}\']?.toDouble() ?? 0.0';
+        return property.isRequired
+            ? 'json[\'${property.name}\']?.toDouble() ?? 0.0'
+            : 'json[\'${property.name}\']?.toDouble()';
       case 'bool':
-        return 'json[\'${property.name}\'] ?? false';
+        return property.isRequired
+            ? 'json[\'${property.name}\'] ?? false'
+            : 'json[\'${property.name}\']';
       case 'DateTime':
-        return 'json[\'${property.name}\'] != null ? DateTime.parse(json[\'${property.name}\']) : null';
+        return property.isRequired
+            ? 'json[\'${property.name}\'] != null ? DateTime.parse(json[\'${property.name}\']) : DateTime.now()'
+            : 'json[\'${property.name}\'] != null ? DateTime.parse(json[\'${property.name}\']) : null';
       default:
         if (type.startsWith('List<')) {
           final itemType = type.substring(5, type.length - 1);
           if (_isPrimitiveType(itemType)) {
-            return 'json[\'${property.name}\'] != null ? List<${itemType}>.from(json[\'${property.name}\']) : []';
+            return property.isRequired
+                ? 'json[\'${property.name}\'] != null ? List<${itemType}>.from(json[\'${property.name}\']) : []'
+                : 'json[\'${property.name}\'] != null ? List<${itemType}>.from(json[\'${property.name}\']) : null';
           } else {
-            return 'json[\'${property.name}\'] != null ? List<${itemType}>.from(json[\'${property.name}\'].map((x) => ${itemType}.fromJson(x))) : []';
+            return property.isRequired
+                ? 'json[\'${property.name}\'] != null ? List<${itemType}>.from(json[\'${property.name}\'].map((x) => ${itemType}.fromJson(x))) : []'
+                : 'json[\'${property.name}\'] != null ? List<${itemType}>.from(json[\'${property.name}\'].map((x) => ${itemType}.fromJson(x))) : null';
           }
         } else if (type.startsWith('Map<')) {
-          return 'json[\'${property.name}\'] != null ? Map<String, dynamic>.from(json[\'${property.name}\']) : {}';
+          return property.isRequired
+              ? 'json[\'${property.name}\'] != null ? Map<String, dynamic>.from(json[\'${property.name}\']) : {}'
+              : 'json[\'${property.name}\'] != null ? Map<String, dynamic>.from(json[\'${property.name}\']) : null';
         } else {
-          return 'json[\'${property.name}\'] != null ? ${type}.fromJson(json[\'${property.name}\']) : null';
+          if (type == 'dynamic') {
+            return 'json[\'${property.name}\']';
+          } else if (property.isRequired) {
+            return 'json[\'${property.name}\'] != null ? ${type}.fromJson(json[\'${property.name}\']) : (throw ArgumentError(\'Missing required field: ${property.name}\'))';
+          } else {
+            return 'json[\'${property.name}\'] != null ? ${type}.fromJson(json[\'${property.name}\']) : null';
+          }
         }
     }
   }
