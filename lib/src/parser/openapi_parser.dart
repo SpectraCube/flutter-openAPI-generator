@@ -298,7 +298,7 @@ class OpenApiParser {
 
     if (primaryType == null) return 'dynamic';
 
-    return hasNull ? '$primaryType?' : primaryType;
+    return primaryType;
   }
 
   EndpointDefinition? _parseEndpointDefinition(
@@ -354,16 +354,51 @@ class OpenApiParser {
 
     if (name != null && in_ != null && schema != null) {
       String type;
+      bool isNullable = !required;
+
       if (schema.containsKey('\$ref')) {
         final ref = schema['\$ref'] as String;
         type = _resolveRefType(ref);
       } else {
         type = _getDartType(schema);
+
+        // Check for explicit nullable patterns only if not required
+        if (!required) {
+          if (schema['nullable'] == true) {
+            isNullable = true;
+          }
+
+          // Handle type arrays like ["integer", "null"]
+          if (schema['type'] is List) {
+            final typeArray = schema['type'] as List;
+            if (typeArray.contains('null')) {
+              isNullable = true;
+            }
+          }
+
+          // Handle anyOf/oneOf with null
+          if (schema.containsKey('anyOf') || schema.containsKey('oneOf')) {
+            final anyOf = schema['anyOf'] as List<dynamic>?;
+            final oneOf = schema['oneOf'] as List<dynamic>?;
+            final types = anyOf ?? oneOf ?? [];
+
+            for (final typeSchema in types) {
+              if (typeSchema is Map<String, dynamic> &&
+                  typeSchema['type'] == 'null') {
+                isNullable = true;
+                break;
+              }
+            }
+          }
+        }
       }
+
+      final finalType = isNullable && !type.endsWith('?') ? '$type?' : type.replaceAll('?', '');
+
       return ParameterDefinition(
         name: name,
         location: in_,
-        type: required ? type : '$type?',
+        type: finalType,
         isRequired: required,
       );
     }
