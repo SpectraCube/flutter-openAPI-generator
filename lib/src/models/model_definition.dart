@@ -12,12 +12,14 @@ class ModelDefinition {
 
 class ModelProperty {
   final String name;
+  final String originalName;
   final String type;
   final bool isRequired;
   final String description;
 
   ModelProperty({
     required this.name,
+    required this.originalName,
     required this.type,
     required this.isRequired,
     required this.description,
